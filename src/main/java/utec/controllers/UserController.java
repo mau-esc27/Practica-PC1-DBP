@@ -3,21 +3,31 @@ package utec.controllers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import org.json.JSONObject;
-import utec.dto.*;
-import utec.models.User;
-import utec.repository.Database;
+import utec.dtos.UserDTO;
+import utec.services.UserService;
 
-import java.io.IOException;
-import java.io.OutputStream;
+import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.util.regex.Pattern;
 
 public class UserController {
 
-    // POST /users/register
+    private static final UserService userService = new UserService();
+
+    // Regex para email
+    private static final Pattern EMAIL_REGEX =
+            Pattern.compile("^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$");
+
+    // Regex para password: mínimo 8 caracteres, al menos una minúscula, una mayúscula y un dígito
+    private static final Pattern PASSWORD_REGEX =
+            Pattern.compile("^(?=.*[A-Z])(?=.*\\d)[A-Za-z\\d]{8,}$");
+
+
+    // Handler para registrar usuarios
     public static class RegisterHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
-            if (!exchange.getRequestMethod().equalsIgnoreCase("POST")) {
+            if (!"POST".equals(exchange.getRequestMethod())) {
                 exchange.sendResponseHeaders(405, -1);
                 return;
             }
@@ -25,71 +35,91 @@ public class UserController {
             String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
             JSONObject json = new JSONObject(body);
 
-            RegisterUserDTO dto = new RegisterUserDTO();
-            dto.firstName = json.getString("firstName");
-            dto.lastName = json.getString("lastName");
-            dto.email = json.getString("email");
-            dto.password = json.getString("password");
+            String firstName = json.optString("firstName", "");
+            String lastName = json.optString("lastName", "");
+            String email = json.optString("email", "");
+            String password = json.optString("password", "");
 
-            if (Database.users.values().stream().anyMatch(us -> us.email.equals(dto.email))) {
-                exchange.sendResponseHeaders(400, -1);
+            // Validaciones
+            if (firstName.isEmpty() || lastName.isEmpty() || email.isEmpty() || password.isEmpty()) {
+                sendJSON(exchange, 400, new JSONObject().put("error", "Missing required fields"));
                 return;
             }
 
-            User u = new User();
-            u.firstName = dto.firstName;
-            u.lastName = dto.lastName;
-            u.email = dto.email;
-            u.passwordHash = Integer.toHexString(dto.password.hashCode());
+            if (firstName.length() < 2) {
+                sendJSON(exchange, 400, new JSONObject().put("error", "Invalid firstName"));
+                return;
+            }
 
-            Database.users.put(u.id, u);
+            if (lastName.length() < 2) {
+                sendJSON(exchange, 400, new JSONObject().put("error", "Invalid lastName"));
+                return;
+            }
 
-            NewIdDTO respDTO = new NewIdDTO(u.id);
-            JSONObject resp = new JSONObject(respDTO);
+            if (!EMAIL_REGEX.matcher(email).matches()) {
+                sendJSON(exchange, 400, new JSONObject().put("error", "Invalid email"));
+                return;
+            }
 
-            sendJSON(exchange, resp);
+            if (!PASSWORD_REGEX.matcher(password).matches()) {
+                sendJSON(exchange, 400, new JSONObject().put("error", "Invalid password"));
+                return;
+            }
+
+            if (userService.existsEmail(email)) {
+                sendJSON(exchange, 400, new JSONObject().put("error", "Email already exists"));
+                return;
+            }
+
+            try {
+                UserDTO user = userService.registerUser(json);
+                sendJSON(exchange, 201, new JSONObject().put("id", user.id));
+            } catch (Exception e) {
+                sendJSON(exchange, 400, new JSONObject().put("error", e.getMessage()));
+            }
         }
     }
 
-    // GET /users/{id}
+    // Handler para obtener usuario por ID
     public static class GetUserHandler implements HttpHandler {
         @Override
         public void handle(HttpExchange exchange) throws IOException {
-            if (!exchange.getRequestMethod().equalsIgnoreCase("GET")) {
+            if (!"GET".equals(exchange.getRequestMethod())) {
                 exchange.sendResponseHeaders(405, -1);
                 return;
             }
 
-            String path = exchange.getRequestURI().getPath(); // /users/{id}
+            String path = exchange.getRequestURI().getPath();
             String[] parts = path.split("/");
             if (parts.length < 3) {
-                exchange.sendResponseHeaders(400, -1);
+                sendJSON(exchange, 400, new JSONObject().put("error", "User ID missing"));
                 return;
             }
 
-            String id = parts[2];
-            User u = Database.users.get(id);
-            if (u == null) {
-                exchange.sendResponseHeaders(404, -1);
+            String userId = parts[2];
+            UserDTO user = userService.getUserById(userId);
+            if (user == null) {
+                sendJSON(exchange, 404, new JSONObject().put("error", "User not found"));
                 return;
             }
 
-            JSONObject resp = new JSONObject();
-            resp.put("id", u.id);
-            resp.put("firstName", u.firstName);
-            resp.put("lastName", u.lastName);
-            resp.put("email", u.email);
+            JSONObject json = new JSONObject()
+                    .put("id", user.id)
+                    .put("firstName", user.firstName)
+                    .put("lastName", user.lastName)
+                    .put("email", user.email);
 
-            sendJSON(exchange, resp);
+            sendJSON(exchange, 200, json);
         }
     }
 
-    private static void sendJSON(HttpExchange exchange, JSONObject resp) throws IOException {
-        byte[] out = resp.toString().getBytes();
-        exchange.getResponseHeaders().add("Content-Type", "application/json");
-        exchange.sendResponseHeaders(200, out.length);
+    // Utilidad para responder JSON
+    private static void sendJSON(HttpExchange exchange, int status, JSONObject json) throws IOException {
+        byte[] bytes = json.toString().getBytes(StandardCharsets.UTF_8);
+        exchange.getResponseHeaders().set("Content-Type", "application/json");
+        exchange.sendResponseHeaders(status, bytes.length);
         try (OutputStream os = exchange.getResponseBody()) {
-            os.write(out);
+            os.write(bytes);
         }
     }
 }
