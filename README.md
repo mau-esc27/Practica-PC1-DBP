@@ -230,3 +230,9 @@ class CleanupController {
     }
 }
 ```
+
+## INTEGRANTES DEL GRUPO
+
+- Rafael Rodrigo Choque Coaquira
+- Diego Antonio Escajadillo Guerrero
+- Mauricio Antonio Escajadillo Guerrero
