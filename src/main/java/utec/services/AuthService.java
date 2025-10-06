@@ -2,6 +2,7 @@ package utec.services;
 
 import org.json.JSONObject;
 import utec.dtos.UserDTO;
+import utec.apitester.utils.JwtUtil;
 
 import java.util.*;
 
@@ -30,13 +31,13 @@ public class AuthService {
             throw new Exception("Invalid password");
         }
 
-        String token = UUID.randomUUID().toString();
+        String token = JwtUtil.generateToken(user.id);
         tokens.put(token, user.id);
         return token;
     }
 
     public String getUserIdFromToken(String token) {
-        return tokens.get(token);
+        return JwtUtil.validateToken(token);
     }
 
     public void clear() {

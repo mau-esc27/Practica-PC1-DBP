@@ -7,7 +7,7 @@ import java.net.InetSocketAddress;
 
 public class Application {
     public static void main(String[] args) throws Exception {
-        HttpServer server = HttpServer.create(new InetSocketAddress(8081), 0);
+        HttpServer server = HttpServer.create(new InetSocketAddress(8080), 0);
 
         // Rutas
         server.createContext("/users/register", new UserController.RegisterHandler());
@@ -23,7 +23,7 @@ public class Application {
         server.createContext("/cleanup", new CleanupController());
 
         server.setExecutor(null);
-        System.out.println("Servidor escuchando en http://localhost:8081");
+        System.out.println("Servidor escuchando en http://localhost:8080");
         server.start();
     }
 }

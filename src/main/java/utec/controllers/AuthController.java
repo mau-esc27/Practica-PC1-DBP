@@ -21,9 +21,11 @@ public class AuthController {
                 }
 
                 String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+                System.out.println("DEBUG: Login request body: " + body);
                 JSONObject json = new JSONObject(body);
 
                 String token = ServiceRegistry.AUTH.login(json);
+                System.out.println("DEBUG: Login successful, token generated: " + token);
 
                 JSONObject response = new JSONObject();
                 response.put("token", token);
@@ -36,6 +38,8 @@ public class AuthController {
                 }
 
             } catch (Exception e) {
+                System.out.println("DEBUG: Login error: " + e.getMessage());
+                e.printStackTrace();
                 JSONObject error = new JSONObject();
                 error.put("error", e.getMessage());
                 byte[] respBytes = error.toString().getBytes(StandardCharsets.UTF_8);

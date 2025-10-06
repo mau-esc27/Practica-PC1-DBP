@@ -26,13 +26,34 @@ public class FlightService {
         return flights.values().stream().anyMatch(f -> f.flightNumber.equals(flightNumber));
     }
 
-    public List<FlightDTO> searchFlights(String flightNumber) {
-        if (flightNumber == null || flightNumber.isEmpty()) {
-            return new ArrayList<>(flights.values());
-        }
+    public List<FlightDTO> searchFlights(String flightNumber, String airlineName) {
         return flights.values().stream()
-                .filter(f -> f.flightNumber.equalsIgnoreCase(flightNumber))
+                .filter(f -> {
+                    boolean matchesFlightNumber = flightNumber == null || flightNumber.isEmpty() ||
+                            f.flightNumber.toUpperCase().contains(flightNumber.toUpperCase());
+                    boolean matchesAirlineName = airlineName == null || airlineName.isEmpty() ||
+                            f.airlineName.toUpperCase().contains(airlineName.toUpperCase());
+
+                    // Si ambos parámetros están presentes, ambos deben coincidir
+                    // Si solo uno está presente, solo ese debe coincidir
+                    if (flightNumber != null && !flightNumber.isEmpty() && airlineName != null && !airlineName.isEmpty()) {
+                        return matchesFlightNumber && matchesAirlineName;
+                    } else if (flightNumber != null && !flightNumber.isEmpty()) {
+                        return matchesFlightNumber;
+                    } else if (airlineName != null && !airlineName.isEmpty()) {
+                        return matchesAirlineName;
+                    } else {
+                        // Si no hay parámetros de búsqueda, devolver todos
+                        return true;
+                    }
+                })
+                .sorted((f1, f2) -> f1.flightNumber.compareToIgnoreCase(f2.flightNumber))
                 .toList();
+    }
+
+    // Mantener el método original para compatibilidad
+    public List<FlightDTO> searchFlights(String flightNumber) {
+        return searchFlights(flightNumber, null);
     }
 
     public FlightDTO getFlightById(String id) {

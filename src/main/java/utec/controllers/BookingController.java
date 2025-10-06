@@ -38,9 +38,12 @@ public class BookingController {
                 return;
             }
 
-            String body = new Scanner(exchange.getRequestBody(), StandardCharsets.UTF_8)
-                    .useDelimiter("\\A").hasNext() ? new Scanner(exchange.getRequestBody(), StandardCharsets.UTF_8)
-                    .useDelimiter("\\A").next() : "";
+            // Corregir la lectura del body - solo leer una vez
+            String body;
+            try (Scanner scanner = new Scanner(exchange.getRequestBody(), StandardCharsets.UTF_8)) {
+                body = scanner.useDelimiter("\\A").hasNext() ? scanner.next() : "";
+            }
+
             if (body == null || body.isBlank()) {
                 ResponseUtils.sendError(exchange, 400, "Missing body");
                 return;
@@ -85,7 +88,7 @@ public class BookingController {
                     System.err.println("No se pudo escribir archivo de confirmación: " + ex.getMessage());
                 }
 
-                ResponseUtils.sendJSON(exchange, 201, new JSONObject().put("id", booking.id));
+                ResponseUtils.sendJSON(exchange, 200, new JSONObject().put("id", booking.id));
             } catch (Exception e) {
                 ResponseUtils.sendError(exchange, 400, e.getMessage());
             }
@@ -115,6 +118,9 @@ public class BookingController {
                 return;
             }
 
+            // Obtener información adicional del vuelo
+            FlightDTO flight = ServiceRegistry.FLIGHT.getFlightById(booking.flightId);
+
             JSONObject resp = new JSONObject()
                     .put("id", booking.id)
                     .put("bookingDate", booking.bookingDate)
@@ -122,7 +128,9 @@ public class BookingController {
                     .put("flightNumber", booking.flightNumber)
                     .put("customerId", booking.customerId)
                     .put("customerFirstName", booking.customerFirstName)
-                    .put("customerLastName", booking.customerLastName);
+                    .put("customerLastName", booking.customerLastName)
+                    .put("estDepartureTime", flight != null ? flight.estDepartureTime : "")
+                    .put("estArrivalTime", flight != null ? flight.estArrivalTime : "");
 
             ResponseUtils.sendJSON(exchange, 200, resp);
         }

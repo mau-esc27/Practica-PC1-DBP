@@ -4,15 +4,13 @@ import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 import org.json.JSONObject;
 import utec.dtos.UserDTO;
-import utec.services.UserService;
+import utec.services.ServiceRegistry;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.util.regex.Pattern;
 
 public class UserController {
-
-    private static final UserService userService = new UserService();
 
     // Regex para email
     private static final Pattern EMAIL_REGEX =
@@ -66,13 +64,13 @@ public class UserController {
                 return;
             }
 
-            if (userService.existsEmail(email)) {
+            if (ServiceRegistry.USER.existsEmail(email)) {
                 sendJSON(exchange, 400, new JSONObject().put("error", "Email already exists"));
                 return;
             }
 
             try {
-                UserDTO user = userService.registerUser(json);
+                UserDTO user = ServiceRegistry.USER.registerUser(json);
                 sendJSON(exchange, 201, new JSONObject().put("id", user.id));
             } catch (Exception e) {
                 sendJSON(exchange, 400, new JSONObject().put("error", e.getMessage()));
@@ -97,7 +95,7 @@ public class UserController {
             }
 
             String userId = parts[2];
-            UserDTO user = userService.getUserById(userId);
+            UserDTO user = ServiceRegistry.USER.getUserById(userId);
             if (user == null) {
                 sendJSON(exchange, 404, new JSONObject().put("error", "User not found"));
                 return;

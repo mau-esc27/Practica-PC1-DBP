@@ -77,13 +77,28 @@ public class FlightController {
         public void handle(HttpExchange exchange) throws IOException {
             String query = exchange.getRequestURI().getQuery();
             String flightNumber = null;
-            if (query != null && query.startsWith("flightNumber=")) {
-                flightNumber = query.split("=")[1];
+            String airlineName = null;
+
+            if (query != null) {
+                String[] params = query.split("&");
+                for (String param : params) {
+                    String[] keyValue = param.split("=", 2);
+                    if (keyValue.length == 2) {
+                        String key = keyValue[0];
+                        String value = java.net.URLDecoder.decode(keyValue[1], java.nio.charset.StandardCharsets.UTF_8);
+
+                        if ("flightNumber".equals(key)) {
+                            flightNumber = value;
+                        } else if ("airlineName".equals(key)) {
+                            airlineName = value;
+                        }
+                    }
+                }
             }
 
-            List<FlightDTO> results = ServiceRegistry.FLIGHT.searchFlights(flightNumber);
+            List<FlightDTO> results = ServiceRegistry.FLIGHT.searchFlights(flightNumber, airlineName);
             JSONObject response = new JSONObject();
-            response.put("results", results.stream().map(f ->
+            response.put("items", results.stream().map(f ->
                     new JSONObject()
                             .put("id", f.id)
                             .put("airlineName", f.airlineName)
